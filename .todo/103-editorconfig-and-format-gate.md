@@ -5,7 +5,7 @@ phase: 1
 bucket: mvp
 depends_on: [101]
 blocks: [104]
-status: todo
+status: done
 area: ops
 ---
 
@@ -86,9 +86,13 @@ required check; this task is what makes it passable.
    `<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>`. The build is at 0 warnings today (task
    `101`), so a warning arriving with new code should fail the PR that brought it. Note the interaction:
    `TreatWarningsAsErrors` together with `EnforceCodeStyleInBuild` turns every rule you escalated in
-   step 4 into a build failure as well. That is the point, but escalate deliberately. If an SDK upgrade
-   later floods warnings, suppress the specific IDs with `<WarningsNotAsErrors>` rather than dropping
-   the posture.
+   step 4 into a build failure as well. That is the point, but escalate deliberately — with one
+   **measured correction (2026-10-15, SDK 10.0.401):** only the namespace rule reached the build. A
+   probe file with a block-scoped namespace failed `dotnet build` with `error IDE0161`; a probe with a
+   private field named `probeField` did **not** fail the build, but did fail the gate (`error IDE1006`,
+   exit `2`). Naming rules stay formatter-only, so both gates are load-bearing and `104` needs both.
+   If an SDK upgrade later floods warnings, suppress the specific IDs with `<WarningsNotAsErrors>`
+   rather than dropping the posture.
 7. **Day-to-day formatting.** A bare `dotnet format` formats the whole tree and will rewrite files your
    change never touched. Scope it: `dotnet format --include GamePolish.Core/Backup/BackupEngine.cs`, or
    widen to a folder with `--include GamePolish.Core`. `--exclude`, `--severity`, `--no-restore` and

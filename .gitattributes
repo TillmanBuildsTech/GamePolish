@@ -1,0 +1,16 @@
+# Line endings are normalised to LF in the repository (task 103).
+#
+# The format gate (`dotnet format --verify-no-changes`) runs on ubuntu-latest while development
+# happens on Windows, where core.autocrlf=true would otherwise check text files out as CRLF and make
+# the two machines disagree about the same file. Pinning eol=lf is what makes .editorconfig's
+# `end_of_line = lf` true on both. The index already holds LF for every tracked text file, so this
+# attribute changes no content - it only stops CRLF from coming back on the next checkout.
+* text=auto eol=lf
+
+# Never converted, never diffed as text.
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.zip binary

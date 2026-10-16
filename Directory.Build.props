@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Repo-wide MSBuild posture (task 103). These are product promises rather than style preferences,
+    and they cannot live in .editorconfig - nullable and the warnings posture are MSBuild properties.
+
+      Nullable                  The path, manifest and backup code in GamePolish.Core handles
+                                untrusted input from mod sources; a nullable annotation there is a
+                                design statement, and the compiler should enforce it repo-wide from
+                                the first real class.
+      TreatWarningsAsErrors     The tree builds at 0 warnings today. A warning arriving with new
+                                code should fail the PR that brought it rather than accumulate.
+                                If an SDK upgrade floods a specific warning, suppress that ID with
+                                <WarningsNotAsErrors> - do not drop the posture.
+      EnforceCodeStyleInBuild   Makes the .editorconfig severities escalated in task 103 (file-scoped
+                                namespaces, underscore-prefixed private fields) surface in
+                                `dotnet build` as well as in `dotnet format`, so the two agree on
+                                one set of rules.
+
+    A project may still override any of these - a property set in the .csproj wins over an imported
+    Directory.Build.props. Do that deliberately, and say why in the commit.
+  -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+</Project>

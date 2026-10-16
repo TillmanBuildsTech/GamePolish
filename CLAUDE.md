@@ -64,6 +64,8 @@ dotnet format
 dotnet run --project GamePolish.Service
 ```
 
+**Style and warnings are enforced, not advisory (task `103`).** The repo root carries `.editorconfig` (LF endings + final newline; file-scoped namespaces and `_camelCase` private fields escalated to `warning`), `Directory.Build.props` (`Nullable`, `TreatWarningsAsErrors`, `EnforceCodeStyleInBuild` for every project) and `.gitattributes` (LF for every text file, so the Linux `format` job and a Windows checkout see the same bytes). Three consequences: a warning fails the build; `dotnet format --verify-no-changes` must exit 0 before work is reported done; and a bare `dotnet format` rewrites the whole tree, so scope it with `--include <path>` unless a repo-wide normalisation is the intent. Measured caveat: the build enforces the namespace rule (`error IDE0161`) but **not** naming rules — `IDE1006` is caught only by the format gate, so both gates must stay green.
+
 ### Scaffolding (one-time — start from the templates, don't hand-write project files)
 
 The Avalonia template defaults already match the pins above, so name the template and let it choose:
