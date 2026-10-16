@@ -44,11 +44,18 @@ dotnet watch run --project GamePolish.Desktop
 # Build production desktop app
 dotnet publish GamePolish.Desktop -c Release
 
-# Run all tests
+# Run all tests (Microsoft.Testing.Platform; xUnit v3)
 dotnet test
 
-# Run a single test by name
-dotnet test --filter <TestName>
+# Guard against a silently-empty run — exits 9 when fewer than N tests run
+dotnet test --minimum-expected-tests 4
+
+# Run a single test by name — scope it to one project: an unscoped filter exits 8
+# (MTP's "zero tests ran") because the other project matched nothing
+dotnet test GamePolish.Core.Tests/GamePolish.Core.Tests.csproj --filter-method <Namespace.Class.Method>
+
+# Test results as TRX — one uniquely named file per test project
+dotnet test --report-trx
 
 # Format / lint
 dotnet format
