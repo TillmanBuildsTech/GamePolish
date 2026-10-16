@@ -5,7 +5,7 @@ phase: 1
 bucket: mvp
 depends_on: [101, 102, 103]
 blocks: [404]
-status: todo
+status: done
 area: ops
 ---
 
@@ -130,6 +130,31 @@ grep -n 'verify-no-changes\|dotnet restore\|build --no-restore -c Debug\|trx\|--
 Then the authoritative check: push the branch and let GitHub parse it — a malformed workflow reports
 `Invalid workflow file … (Line: N, Col: M)` and registers no run, while `gh workflow list` should show `CI`
 (`gh` is 2.95.0 here). Three green jobs on a trivial PR is the end-to-end proof.
+
+## Result — first run (2026-10-16, run `38853107595`, commit `e13a765`)
+
+The pushed workflow parsed and ran green on its first attempt:
+
+| Job | Conclusion | Wall time |
+|---|---|---|
+| `format` | success | 30s |
+| `build-and-test` | success | 36s |
+| `build-check-desktop (windows-latest, win-x64)` | success | 1m 23s |
+| `build-check-desktop (macos-latest, osx-arm64)` | success | 32s |
+
+`build-and-test` logged `total: 4, failed: 0, succeeded: 4` and uploaded the `test-results`
+artifact (2770 bytes), which proves the `**/TestResults/*.trx` glob matches the root results
+directory MTP writes to — `if-no-files-found: error` would otherwise have failed the step.
+
+The four check names to enter in branch protection (measured, not guessed — a matrix job surfaces one
+check per leg, and the separator is a comma followed by a space):
+
+```
+format
+build-and-test
+build-check-desktop (macos-latest, osx-arm64)
+build-check-desktop (windows-latest, win-x64)
+```
 
 ## References
 
