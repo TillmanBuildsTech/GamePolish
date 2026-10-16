@@ -1,3 +1,4 @@
+using GamePolish.Core.Paths;
 using GamePolish.Core.Storage;
 
 namespace GamePolish.Core.Games;
@@ -14,9 +15,8 @@ namespace GamePolish.Core.Games;
 /// gets against picking the wrong directory.
 /// </para>
 /// <para>
-/// This class also holds the phase-2 answer to filesystem case sensitivity
-/// (<see cref="PathComparison"/>). The plan puts that decision in task 204's <c>PathComparer</c>; until
-/// that exists it lives here, in one place, rather than being repeated per call site.
+/// Path comparison comes from <see cref="PathComparer"/>: task 204 created it, and it owns the decision
+/// this class used to make for itself.
 /// </para>
 /// </remarks>
 public sealed class InstallPathValidator
@@ -30,35 +30,6 @@ public sealed class InstallPathValidator
         ArgumentNullException.ThrowIfNull(paths);
 
         _paths = paths;
-    }
-
-    /// <summary>
-    /// The one place filesystem path comparison is decided: Windows and macOS are case-insensitive,
-    /// Linux is not.
-    /// </summary>
-    public static StringComparison PathComparison { get; } =
-        OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-
-    /// <summary>True when both paths name the same location, ignoring a trailing separator.</summary>
-    /// <param name="first">A normalized absolute path.</param>
-    /// <param name="second">A normalized absolute path.</param>
-    public static bool AreSamePath(string first, string second) =>
-        string.Equals(TrimTrailingSeparators(first), TrimTrailingSeparators(second), PathComparison);
-
-    /// <summary>True when <paramref name="candidate"/> is a strict descendant of <paramref name="root"/>.</summary>
-    /// <param name="candidate">The path to test.</param>
-    /// <param name="root">The container path.</param>
-    public static bool IsInside(string candidate, string root)
-    {
-        string relative = Path.GetRelativePath(root, candidate);
-
-        if (relative is "." || relative == ".." || Path.IsPathRooted(relative))
-        {
-            return false;
-        }
-
-        return !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            && !relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -116,7 +87,7 @@ public sealed class InstallPathValidator
 
         string normalized = TrimTrailingSeparators(Path.GetFullPath(expanded));
 
-        if (AreSamePath(normalized, _paths.Root) || IsInside(normalized, _paths.Root))
+        if (PathComparer.AreEqual(normalized, _paths.Root) || PathComparer.IsInside(normalized, _paths.Root))
         {
             throw new InstallPathInvalidException(
                 gameId,
@@ -125,7 +96,7 @@ public sealed class InstallPathValidator
                 + "files separate from the games it manages, so choose the game's own install folder.");
         }
 
-        if (IsInside(_paths.Root, normalized))
+        if (PathComparer.IsInside(_paths.Root, normalized))
         {
             throw new InstallPathInvalidException(
                 gameId,

@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using GamePolish.Core.Paths;
 using GamePolish.Core.Storage;
 
 namespace GamePolish.Core.Games;
@@ -139,7 +140,7 @@ public sealed class GamesRegistry : IGamesRegistry
             string normalized = _installPaths.NormalizeInstallPath(gameId, installPath);
 
             TrackedGame? trackedElsewhere = file.Games.FirstOrDefault(
-                game => !Is(game.Id, gameId) && InstallPathValidator.AreSamePath(game.InstallPath, normalized));
+                game => !Is(game.Id, gameId) && PathComparer.AreEqual(game.InstallPath, normalized));
 
             if (trackedElsewhere is not null)
             {
@@ -203,7 +204,7 @@ public sealed class GamesRegistry : IGamesRegistry
             string normalized = _installPaths.NormalizeInstallPath(gameId, installPath);
 
             TrackedGame? trackedElsewhere = file.Games.FirstOrDefault(
-                game => !Is(game.Id, gameId) && InstallPathValidator.AreSamePath(game.InstallPath, normalized));
+                game => !Is(game.Id, gameId) && PathComparer.AreEqual(game.InstallPath, normalized));
 
             if (trackedElsewhere is not null)
             {
