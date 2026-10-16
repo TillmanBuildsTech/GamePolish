@@ -5,7 +5,7 @@ phase: 1
 bucket: mvp
 depends_on: []
 blocks: [102, 103, 104]
-status: todo
+status: done
 area: ops
 ---
 
@@ -21,9 +21,9 @@ succeeds with 0 warnings and 0 errors on SDK `10.0.401` targeting `net10.0`.
 ## Context
 
 - State verified 2026-10-15: the repo root holds `CLAUDE.md`, `global.json`, `.gitignore`, `.claude/`
-  and this `.todo/` plan. There is no `.sln`, no `.csproj`, no `.github/`. `git log` reports
-  "your current branch 'main' does not have any commits yet" — nothing has ever been committed, so
-  this task also produces the initial commit.
+  and this `.todo/` plan. There is no `.sln`, no `.csproj`, no `.github/`. History is a single commit,
+  `b5e0519 Init`, carrying only those root files and the plan — so this task also produces the first
+  commit that contains code.
 - `global.json` already pins `10.0.401` with `rollForward: latestFeature`. **Do not regenerate it**:
   no `dotnet new globaljson`, no version bump. It is the only SDK installed on the dev machine and the
   band-level roll-forward is deliberate (see `CLAUDE.md`, "Pinned Versions").
