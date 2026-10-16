@@ -263,7 +263,9 @@ Generated_Code/
 # to a newer Visual Studio version. Backup files are not needed,
 # because we have git ;-)
 _UpgradeReport_Files/
-Backup*/
+# NOT ignoring Backup*/ - that template rule silently excluded Game Polish's own
+# GamePolish.Core/Backup and GamePolish.Core.Tests/Backup folders from the repository, and CI stayed
+# green because nothing referenced those types yet (see .todo/205 and commit for task 205).
 UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/
