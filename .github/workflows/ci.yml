@@ -1,0 +1,126 @@
+# Continuous integration for Game Polish.
+#
+# Spec: ../game-polish-notes/docs/ci-release.md, "Workflow 1 — CI" (authoritative). This file
+# implements it literally: the trigger below, and exactly three jobs in the spec's order - `format`,
+# `build-and-test`, `build-check-desktop`. release.yml (tasks 403/404) and the optional nightly.yml
+# are deliberately absent; see "Recorded decisions" at the bottom of this file.
+#
+# No job needs a secret: every entry in the spec's secrets table is release-time (signing
+# certificates, Apple IDs). macOS Intel is out of scope - `osx-arm64` only.
+name: CI
+
+# The spec's trigger, verbatim: every push to `main` and every pull request targeting `main`.
+# No tags or schedules - tagging belongs to release.yml.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least privilege. Checkout only needs to read the repository, and nothing here writes to it.
+permissions:
+  contents: read
+
+jobs:
+  # Task 103's gate: exits 0 when the tree satisfies .editorconfig and 2 when a file would be
+  # rewritten, so the step's own exit code is the gate - no `|| exit 1` wrapper.
+  # It is also the only place naming rules are enforced: EnforceCodeStyleInBuild surfaces IDE0161 in
+  # `dotnet build`, but IDE1006 stays formatter-only. Both gates are therefore required.
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7 - current major. Pinned by major tag, which GitHub keeps moving to the
+      # newest v7.x; a major bump is a deliberate change, not a silent one.
+      - uses: actions/checkout@v7
+
+      # actions/setup-dotnet@v6 - current major (its `runs.using` is node24).
+      # `global-json-file` is what makes CI install the SDK band pinned in global.json (10.0.401,
+      # rollForward: latestFeature) instead of whatever the runner happens to ship - the drift this
+      # pin exists to prevent. `dotnet-version` is deliberately NOT passed as well: two sources of
+      # truth for one version is exactly the failure mode the input removes.
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # Needs the solution from task 101. Verified locally on SDK 10.0.401: exit 0 clean, exit 2 on
+      # a misformatted file (`error WHITESPACE`).
+      - run: dotnet format --verify-no-changes
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7 - see the note in `format`.
+      - uses: actions/checkout@v7
+
+      # actions/setup-dotnet@v6 - see the note in `format`; the version comes from global.json.
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: dotnet restore
+
+      - run: dotnet build --no-restore -c Debug
+
+      # Microsoft.Testing.Platform's TRX reporter, not VSTest's `--logger`: global.json opts this
+      # repo into MTP (task 102), and under MTP a VSTest-style `--logger "trx;..."` is only warned
+      # about (MTP0001) and produces no file at all.
+      # No `--report-trx-filename`: with two test projects both would write that one name and the
+      # last would win. The bare flag writes one uniquely named file per project
+      # (`<Project>_<tfm>_<arch>.trx`), verified locally - Microsoft.Testing.Extensions.TrxReport
+      # 2.5.1 is referenced by both test projects, which is what makes the flag exist.
+      - run: dotnet test --no-build --report-trx --results-directory ./TestResults
+
+      # actions/upload-artifact@v7 - current major. One upload only: since v4 a name cannot be
+      # written twice and a job is capped at ten artifacts, so a per-project upload is not an option.
+      # `if: always()` publishes the TRX of a failing run - that is the report you actually need.
+      # The glob covers both layouts: the root results directory above, and a per-project
+      # `TestResults` folder beside each test project.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+          if-no-files-found: error
+
+  # Compilation, not packaging: this proves the desktop project builds per platform. Installers are
+  # task 403.
+  build-check-desktop:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # A Windows failure must not hide whether macOS still compiles.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+    steps:
+      # actions/checkout@v7 - see the note in `format`.
+      - uses: actions/checkout@v7
+
+      # actions/setup-dotnet@v6 - see the note in `format`; the version comes from global.json.
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: dotnet restore
+
+      # No `--no-restore` here, unlike `build-and-test`: a RID-specific build needs RID-specific
+      # assets, and this step's implicit restore is what supplies them. Adding `--no-restore` breaks
+      # the job on a clean runner.
+      - run: dotnet build GamePolish.Desktop -c Release -r ${{ matrix.rid }} --no-self-contained
+
+# --- Recorded decisions (task 104) ---------------------------------------------------------------
+#
+# * Required status checks: once the first run on `main` is green, `format`, `build-and-test` and
+#   BOTH legs of `build-check-desktop` (they surface as one check per matrix leg, named with their
+#   matrix values) become required status checks in branch protection. Branch protection is a
+#   repository setting, not YAML, so it is applied by hand in Settings -> Branches and stated in the
+#   104 commit message.
+#
+# * nightly.yml (spec, "Workflow 3 — Nightly") is DELIBERATELY NOT CREATED. The spec marks it
+#   optional; there is no release pipeline to mirror yet (release.yml is task 403) and an unsigned
+#   nightly publish would exercise nothing that PR CI does not. Revisit when 403 lands, or when a
+#   time-dependent failure appears that PR CI cannot catch - and if it is created, it is its own
+#   file and its own work order, not another job bolted onto this one.
