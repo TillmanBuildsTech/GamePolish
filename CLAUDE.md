@@ -30,7 +30,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Do not downgrade the TFM without also revisiting the Avalonia pin: an 11.x Avalonia on `net10.0` resolves its `net8.0` assets, which is unsupported-by-omission rather than tested.
 
-**Open decision — `dotnet test` runner.** The .NET 10 SDK defaults to VSTest; Microsoft.Testing.Platform is opted into through `global.json` (`{"test":{"runner":"Microsoft.Testing.Platform"}}`). The switch is all-or-nothing: every test project must be MTP or the run errors. Decide when the first test project is created, not before.
+**Test runner — decided: Microsoft.Testing.Platform.** `global.json` carries `{"test":{"runner":"Microsoft.Testing.Platform"}}`. This is not a preference, it is forced: the SDK 10 VSTest target hard-errors for any MTP application ("Testing with VSTest target is no longer supported by Microsoft.Testing.Platform on .NET 10 SDK and later", `microsoft.testing.platform.msbuild`'s `_MTPBeforeVSTest` target), and every xUnit v3 project *is* an MTP application. Because `Avalonia.Headless.XUnit` 12.x forces v3 on the desktop tests, **all** test projects are xUnit v3 — the switch is all-or-nothing, so one xUnit v2 project anywhere breaks the whole `dotnet test` run. TRX reporting is MTP's own: `dotnet test --report-trx` (one uniquely named file per test project), never `--logger "trx;..."`.
 
 ## Build & Dev Commands
 
@@ -76,7 +76,7 @@ dotnet sln add GamePolish.Core GamePolish.Desktop
 - Scaffold `GamePolish.Desktop` **last** so it references real `GamePolish.Core` contracts instead of imagined ones.
 - `avalonia.mvvm` publishes Avalonia 12.1.4 and *not* `Avalonia.Diagnostics`: that package has no 12.x release. DevTools in 12 is `AvaloniaUI.DiagnosticsSupport`, which the template already references and wires as `.WithDeveloperTools()` under DEBUG.
 
-**Test projects — the xUnit version trap.** `dotnet new xunit` scaffolds **xUnit v2** (with `xunit.runner.visualstudio`, VSTest). That is fine for `GamePolish.Core.Tests`, but the Desktop's headless UI tests require **xUnit v3**, because `Avalonia.Headless.XUnit` 12.x depends on `xunit.v3.extensibility.core`. `dotnet new xunit` will not give you that; use the `xunit.v3.templates` package or swap the package references. The runner stays a free choice: `xunit.runner.visualstudio` 3.1.4+ runs xUnit v1/v2/v3 under VSTest, while Microsoft.Testing.Platform is the opt-in alternative (see the open decision above).
+**Test projects — the xUnit version trap.** Every test project here is **xUnit v3**, scaffolded with `dotnet new xunit3` (from the `xunit.v3.templates` package, installed on this machine). That produces an `OutputType=Exe` project on `xunit.v3.mtp-v2` with `TestingPlatformDotnetTestSupport=true` — and it rewrites `global.json` to opt the repo into MTP, which is now the intended state. Its two stale defaults need fixing: TFM `net8.0` → `net10.0`. `dotnet new xunit` scaffolds **xUnit v2** and must not be used here: under MTP it cannot run at all, and the failure appears as a refused project rather than a failing test. v3 is not optional for the desktop tests because `Avalonia.Headless.XUnit` 12.x depends on `xunit.v3.extensibility.core`; confirm any resolved Avalonia headless package is a 12.x line.
 
 Verified 2026-10-15 on this machine: the generated desktop project (App.axaml (+.cs), Program.cs, ViewLocator.cs, ViewModels/, Views/, Assets/, app.manifest) builds clean — 0 warnings, 0 errors — against SDK 10.0.401 on `net10.0`.
 
