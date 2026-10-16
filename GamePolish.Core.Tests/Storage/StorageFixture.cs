@@ -16,10 +16,12 @@ namespace GamePolish.Core.Tests.Storage;
 public sealed class StorageFixture : IDisposable
 {
     private readonly string? _previousDataRoot;
+    private readonly string _installRoot;
 
     public StorageFixture()
     {
         Root = Path.Combine(Path.GetTempPath(), "game-polish-core-tests", Guid.NewGuid().ToString("N"));
+        _installRoot = Path.Combine(Path.GetTempPath(), "game-polish-core-tests-installs", Guid.NewGuid().ToString("N"));
 
         Directory.CreateDirectory(Root);
 
@@ -46,14 +48,37 @@ public sealed class StorageFixture : IDisposable
         return directory;
     }
 
-    /// <summary>Restores the environment variable and removes the temporary tree.</summary>
+    /// <summary>
+    /// Creates and returns a temporary directory that is deliberately <b>not</b> inside the data root.
+    /// </summary>
+    /// <param name="name">Directory name, unique per caller.</param>
+    /// <remarks>
+    /// Game install folders used as fixtures have to live outside the data root: the registry refuses
+    /// an install path inside it, because that would collapse the two roots invariant #4 keeps apart.
+    /// </remarks>
+    public string NewInstallDirectory(string name)
+    {
+        string directory = Path.Combine(_installRoot, name);
+
+        Directory.CreateDirectory(directory);
+
+        return directory;
+    }
+
+    /// <summary>Restores the environment variable and removes the temporary trees.</summary>
     public void Dispose()
     {
         Environment.SetEnvironmentVariable(GamePolishPaths.DataRootEnvironmentVariable, _previousDataRoot);
 
+        TryDelete(Root);
+        TryDelete(_installRoot);
+    }
+
+    private static void TryDelete(string directory)
+    {
         try
         {
-            Directory.Delete(Root, recursive: true);
+            Directory.Delete(directory, recursive: true);
         }
         catch (IOException)
         {
