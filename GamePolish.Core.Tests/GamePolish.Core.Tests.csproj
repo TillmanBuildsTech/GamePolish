@@ -10,7 +10,13 @@
 
   <ItemGroup>
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Games/*.yaml" CopyToOutputDirectory="PreserveNewest" />
+
+    <!--
+      Link is load-bearing. GameDescriptorLoader looks for descriptors in "<app base dir>/games", and
+      Linux is case-sensitive: without the Link the fixture copies to "Games" (the source folder's case)
+      and the loader finds nothing there. The first CI run on main failed 21 tests on exactly this.
+    -->
+    <Content Include="Games/*.yaml" Link="games/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

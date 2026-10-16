@@ -152,11 +152,16 @@ public sealed class GamePolishPaths
     /// Rejects anything that is not a single directory name: an id with a separator would escape the
     /// data root, and a rooted id would ignore it entirely.
     /// </summary>
+    /// <remarks>
+    /// Both separators are rejected on every platform, not just the running platform's: a game id is a
+    /// folder name, and <c>\</c> is a separator on Windows even when this process runs on Linux, so a
+    /// data root built from such an id would come apart the moment it is opened there.
+    /// </remarks>
     private static string ValidateGameId(string gameId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameId);
 
-        bool isSingleName = gameId.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) < 0
+        bool isSingleName = gameId.AsSpan().IndexOfAny('/', '\\') < 0
             && gameId is not "." and not ".."
             && !Path.IsPathRooted(gameId);
 
