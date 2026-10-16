@@ -30,13 +30,17 @@ public static class AtomicJson
     /// <remarks>
     /// Property names are <c>snake_case</c> so the files on disk match the design notes'
     /// <c>schema_version</c> / <c>install_path</c> spelling; nulls are omitted, so an unset optional
-    /// setting is absent from the file rather than written as <c>null</c>.
+    /// setting is absent from the file rather than written as <c>null</c>. Enums are written by name
+    /// (<c>"mod_install"</c>, not <c>0</c>): the backup index is an audit trail that a person reads and a
+    /// future version parses, and a bare number changes meaning the day a member is inserted rather than
+    /// appended.
     /// </remarks>
     public static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower) },
     };
 
     /// <summary>Reads <paramref name="path"/>, or returns <c>default</c> when it does not exist.</summary>
