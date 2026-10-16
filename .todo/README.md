@@ -158,12 +158,15 @@ building on them.
 These are not task decisions — they are facts about the outside world that the plan *depends on* and
 that no agent can settle alone. Verified 2026-10-15 on this machine.
 
-1. **The repo has no git remote.** `git remote -v` is empty. Nothing can be tagged, pushed or released
-   until a remote exists, so tasks `404`, `610` and `611` are blocked on it.
-2. **The `game-polish` GitHub owner does not exist.** `gh api orgs/game-polish` → 404,
-   `gh api orgs/game-polish/repos` → 404, and `gh api repos/game-polish/registries` → 404. The
-   authenticated account is `Tillman32` (Brandon; public repos live under `Tillman32/*` and
-   `MorphStack/*`). There is **no** `registries` repository anywhere under that account.
+1. **The repo has a remote (resolved since the first draft).** `git remote -v` reports
+   `origin https://github.com/TillmanBuildsTech/GamePolish.git`; the repository is public with default
+   branch `main`, so tasks `404`, `610` and `611` are no longer blocked on creating one. Nothing is
+   pushed automatically — pushing is still a deliberate, user-approved step.
+2. **The `game-polish` GitHub owner still does not exist**, but the real owner is now known.
+   `gh api orgs/game-polish` → 404, whereas `gh api users/TillmanBuildsTech` → type `Organization`, and
+   it owns the public `GamePolish` repository. The authenticated account is still `Tillman32` (Brandon).
+   There is **no** `registries` repository under `TillmanBuildsTech` (`gh api
+   repos/TillmanBuildsTech/registries` → 404).
 3. **Therefore three hardcoded URLs in this plan are placeholders, not facts.** They are the
    descriptor's `registry_url` (task `401`), the registry repo location (task `402`), and the release
    download links the website relies on (tasks `404`, `611`, `706`):
@@ -173,10 +176,11 @@ that no agent can settle alone. Verified 2026-10-15 on this machine.
    https://github.com/game-polish/game-polish/releases/latest/download/<filename>
    ```
 
-   **Decide the owner before starting task `402`.** Either create the `game-polish` org and the two
-   repositories, or pick a real owner (e.g. `Tillman32/game-polish` and `Tillman32/registries`) and
-   update `registry_url` in `401` in the same change. The download filenames must stay stable forever
-   once published — the owner is cheap to change now and expensive later.
+   **Decide it before starting task `402`.** Either create the `registries` repository under the
+   existing `TillmanBuildsTech` org and rewrite the URLs to `TillmanBuildsTech/registries` /
+   `TillmanBuildsTech/GamePolish`, or create the `game-polish` org as originally written. The download
+   filenames must stay stable forever once published — the owner is cheap to change now and expensive
+   later.
 
 Everything else in this directory is actionable today.
 
