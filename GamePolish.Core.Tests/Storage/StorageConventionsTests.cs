@@ -20,8 +20,6 @@ public class StorageConventionsTests
     private static readonly string[] NonAtomicWriteCalls =
         ["File.WriteAllText", "File.CreateText", "StreamWriter("];
 
-    private static readonly string RepositoryRoot = FindRepositoryRoot();
-    private static readonly string CoreDirectory = Path.Combine(RepositoryRoot, "GamePolish.Core");
     private static readonly string AtomicJsonFile = Path.Combine("Storage", "AtomicJson.cs");
 
     [Fact]
@@ -39,15 +37,13 @@ public class StorageConventionsTests
     [Fact]
     public void AtomicJsonIsTheOnlyFileWriterInCore()
     {
-        string[] sources = Directory.GetFiles(CoreDirectory, "*.cs", SearchOption.AllDirectories)
-            .Where(IsCompiledSource)
-            .ToArray();
+        IReadOnlyList<string> sources = RepositoryLayout.CoreSourceFiles();
 
         Assert.NotEmpty(sources);
 
         // The grep below is only meaningful if the file it excludes is actually reachable: prove the
         // pattern matches something before asserting that nothing else does.
-        string writer = Path.Combine(CoreDirectory, AtomicJsonFile);
+        string writer = Path.Combine(RepositoryLayout.CoreDirectory, AtomicJsonFile);
         Assert.Contains(writer, sources);
         Assert.Contains(
             NonAtomicWriteCalls[0],
@@ -67,40 +63,11 @@ public class StorageConventionsTests
             {
                 if (text.Contains(call, StringComparison.Ordinal))
                 {
-                    offenders.Add($"{Path.GetRelativePath(RepositoryRoot, source)}: {call}");
+                    offenders.Add($"{RepositoryLayout.Relative(source)}: {call}");
                 }
             }
         }
 
         Assert.Empty(offenders);
-    }
-
-    private static bool IsCompiledSource(string path)
-    {
-        string relative = Path.GetRelativePath(CoreDirectory, path);
-        string[] segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        return !segments.Contains("obj") && !segments.Contains("bin");
-    }
-
-    /// <summary>
-    /// Walks up from the test binary to the directory holding the solution file, so the grep tests
-    /// read the real sources on disk rather than a copy.
-    /// </summary>
-    private static string FindRepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "GamePolish.sln")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException($"No GamePolish.sln found above '{AppContext.BaseDirectory}'.");
     }
 }

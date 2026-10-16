@@ -1,0 +1,9 @@
+id: octowow
+name: "OctoWoW"
+install_detection:
+  manual_only: true
+  verify_file: "WoW.exe"
+mod_layout:
+  type: addons_folder
+  destination: "Interface/AddOns"
+registry_url: "https://raw.githubusercontent.com/game-polish/registries/main/octowow.json"
