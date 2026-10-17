@@ -350,6 +350,91 @@ public sealed class SwapSession
         Phase = SwapPhase.Copied;
     }
 
+    /// <summary>
+    /// Copies an existing directory into the <c>-new-</c> sibling, leaving the original where it is.
+    /// </summary>
+    /// <param name="sourceDirectory">An existing directory to become the addon folder's new content.</param>
+    /// <param name="progress">Reported per copied file, with the addon-relative path as the current item.</param>
+    /// <param name="cancellationToken">Checked before every file, so a cancel stops between files, not inside one.</param>
+    /// <exception cref="InvalidOperationException">The session is past <see cref="SwapPhase.Prepared"/>.</exception>
+    /// <exception cref="DirectoryNotFoundException"><paramref name="sourceDirectory"/> does not exist.</exception>
+    /// <exception cref="PathValidationException">A path in the source resolves outside the addons folder.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>Why a second way into the same swap.</b> <see cref="CopyStagedTree"/> takes a <c>207</c> staging tree whose
+    /// file list is addons-folder-relative; task <c>210</c>'s enable has no staged source at all. It has the parked
+    /// copy of a disabled addon - a directory under the data root whose contents are exactly the files that used to
+    /// be in the game - and the work order's instruction is to put that directory back through the same
+    /// temp-sibling-then-rename pattern. From <see cref="SwapPhase.Copied"/> on, nothing differs, so
+    /// <see cref="Activate"/>, <see cref="Commit"/> and <see cref="Rollback"/> needed no change at all.
+    /// </para>
+    /// <para>
+    /// <b>Why a copy and not a rename.</b> A rename of the parked folder would be cheaper and would still be
+    /// undoable, but only by moving the folder back - and every rollback path in this class deletes what the swap
+    /// created. For an enable, that would delete the mod's only remaining copy. Copying keeps the parked directory
+    /// authoritative until the manifest says the mod is enabled, which is what lets the caller roll an enable back
+    /// with <see cref="Rollback"/> and leave the mod exactly as disabled as it was. The cost is one tree copy, the
+    /// same trade <see cref="SwapOperations"/> already makes for installs.
+    /// </para>
+    /// <para>
+    /// Every path is validated against the addons folder before it is copied, for the same reason the staged path
+    /// is: this is the last point before a manifest-supplied string becomes a write inside the game's directory.
+    /// Unlike a staged tree, repository metadata is <b>not</b> filtered: this is restoring files the product itself
+    /// installed, and silently dropping something would break the "identical file set" promise.
+    /// </para>
+    /// </remarks>
+    public void CopyExistingDirectory(
+        string sourceDirectory,
+        IProgress<OperationProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceDirectory);
+
+        if (Phase != SwapPhase.Prepared)
+        {
+            throw new InvalidOperationException(
+                $"The swap for '{Paths.FolderName}' has already reached {Phase}; it cannot copy another directory now.");
+        }
+
+        string source = Path.GetFullPath(sourceDirectory);
+
+        if (!Directory.Exists(source))
+        {
+            throw new DirectoryNotFoundException(
+                $"'{source}' does not exist, so there is nothing to put into the '{Paths.FolderName}' folder.");
+        }
+
+        List<string> files =
+        [
+            .. Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
+                .Select(file => Path.GetRelativePath(source, file))
+                .Order(StringComparer.Ordinal),
+        ];
+
+        _files.CreateDirectory(Paths.NewDirectory);
+        _createdNewDirectory = true;
+
+        int total = files.Count;
+
+        for (int index = 0; index < total; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string relativePath = files[index].Replace('\\', '/');
+
+            _pathValidator.ResolveSafe(Paths.AddonRoot, Paths.FolderName + "/" + relativePath);
+
+            _files.CopyFile(
+                Path.Combine(source, files[index]),
+                Path.Combine(Paths.NewDirectory, files[index]),
+                overwrite: true);
+
+            progress?.Report(new OperationProgress("copying", index + 1, total, Paths.FolderName + "/" + relativePath));
+        }
+
+        Phase = SwapPhase.Copied;
+    }
+
     /// <summary>Moves the existing folder aside, then moves the new one into its place.</summary>
     /// <exception cref="InvalidOperationException">The session is not at <see cref="SwapPhase.Copied"/>.</exception>
     /// <remarks>
