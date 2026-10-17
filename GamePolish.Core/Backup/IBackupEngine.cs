@@ -18,6 +18,21 @@ public interface IBackupEngine
     /// <param name="sourceName">The mod name or settings file name this backup protects.</param>
     /// <param name="sourceVersion">Version transition for an update, or <see langword="null"/>.</param>
     /// <param name="relativePaths">Every path the operation may write. Paths that do not exist are recorded, not created.</param>
+    /// <param name="sourceRoot">
+    /// Where to read the bytes from when they are not under <paramref name="destinationRoot"/>, or
+    /// <see langword="null"/> for the normal case (the content is inside the game). Every recorded path and the
+    /// snapshot's own layout stay relative to <paramref name="destinationRoot"/>; only the existence check, the
+    /// recorded size and the file that gets copied move. This exists for one situation: a parked addon is content
+    /// that belongs at a game-relative path but currently lives under the data root, so a snapshot of it has to
+    /// name <c>&lt;mod_layout.destination&gt;/&lt;FolderName&gt;/...</c> while reading the bytes from the parked copy.
+    /// </param>
+    /// <param name="sourceRelativePaths">
+    /// Where each recorded path's content lives under <paramref name="sourceRoot"/>, when that tree does not mirror
+    /// the game's layout. Keyed by the recorded path (portable <c>/</c> separators); a recorded path that is not
+    /// named here is read from the same relative path under <paramref name="sourceRoot"/>. Required for the parked
+    /// case, because <c>staging/disabled/&lt;FolderName&gt;</c> stands in for the addon root rather than for the
+    /// game root. Ignored when <paramref name="sourceRoot"/> is <see langword="null"/>.
+    /// </param>
     /// <returns>The event that was appended to the index.</returns>
     /// <exception cref="Paths.PathValidationException">A path is unsafe. Nothing was created.</exception>
     /// <exception cref="BackupFailedException">The copy failed; the partial snapshot was removed.</exception>
@@ -27,7 +42,9 @@ public interface IBackupEngine
         BackupTrigger trigger,
         string sourceName,
         string? sourceVersion,
-        IEnumerable<string> relativePaths);
+        IEnumerable<string> relativePaths,
+        string? sourceRoot = null,
+        IReadOnlyDictionary<string, string>? sourceRelativePaths = null);
 
     /// <summary>Lists a game's backups, newest first.</summary>
     /// <param name="gameId">The game id, e.g. <c>octowow</c>.</param>

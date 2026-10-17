@@ -73,23 +73,47 @@ public sealed class BackupEngine : IBackupEngine
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// <b><paramref name="sourceRoot"/> and <paramref name="sourceRelativePaths"/>.</b> Both default to
+    /// <see langword="null"/>, which is every caller that existed before them - the content is under
+    /// <paramref name="destinationRoot"/> and the recorded path and the source path are the same. They exist for
+    /// the one case where content belongs at a game-relative path but does not live under the game: a disabled
+    /// addon parked in <c>staging/disabled/&lt;FolderName&gt;</c>. Without them the snapshot of such an addon
+    /// records the right paths and copies nothing, and the backup a user is promised at uninstall time restores
+    /// an empty folder.
+    /// </remarks>
     public BackupEvent Create(
         string gameId,
         string destinationRoot,
         BackupTrigger trigger,
         string sourceName,
         string? sourceVersion,
-        IEnumerable<string> relativePaths)
+        IEnumerable<string> relativePaths,
+        string? sourceRoot = null,
+        IReadOnlyDictionary<string, string>? sourceRelativePaths = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameId);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceName);
         ArgumentNullException.ThrowIfNull(relativePaths);
 
+        if (sourceRoot is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(sourceRoot, nameof(sourceRoot));
+        }
+
         _gate.Wait();
         try
         {
-            return CreateCore(gameId, destinationRoot, trigger, sourceName, sourceVersion, relativePaths);
+            return CreateCore(
+                gameId,
+                destinationRoot,
+                trigger,
+                sourceName,
+                sourceVersion,
+                relativePaths,
+                sourceRoot,
+                sourceRelativePaths);
         }
         finally
         {
@@ -153,7 +177,9 @@ public sealed class BackupEngine : IBackupEngine
                 BackupTrigger.Restore,
                 sourceName: "pre-restore " + restorePoint.Timestamp,
                 sourceVersion: null,
-                relativePaths: restorePoint.Files.Select(file => file.RelativePath));
+                relativePaths: restorePoint.Files.Select(file => file.RelativePath),
+                sourceRoot: null,
+                sourceRelativePaths: null);
 
             // Step 2: put the snapshotted files back.
             foreach (BackupFileEntry file in restorePoint.Files)
@@ -250,7 +276,9 @@ public sealed class BackupEngine : IBackupEngine
         BackupTrigger trigger,
         string sourceName,
         string? sourceVersion,
-        IEnumerable<string> relativePaths)
+        IEnumerable<string> relativePaths,
+        string? sourceRoot,
+        IReadOnlyDictionary<string, string>? sourceRelativePaths)
     {
         BackupIndex index = ReadIndex(gameId);
         DateTimeOffset now = _timeProvider.GetUtcNow();
@@ -259,13 +287,26 @@ public sealed class BackupEngine : IBackupEngine
 
         // Validate the whole copy list first. Validation writes nothing, so a refused archive still leaves
         // no snapshot directory behind - and the caller gets the reasons, not a wrapped copy failure.
-        List<(string RelativePath, string ResolvedPath)> targets = [];
+        //
+        // Two paths per entry, deliberately: the recorded one is resolved against the game root and is what a
+        // restore writes to, while the source one is where the bytes are read from. They are the same path
+        // unless the caller named a sourceRoot, which is the parked-addon case. Both go through the validator,
+        // so neither a manifest path nor a caller-supplied root can make the engine read outside its roots.
+        string contentRoot = sourceRoot ?? destinationRoot;
+        List<(string RelativePath, string SourcePath)> targets = [];
 
         foreach (string relativePath in relativePaths)
         {
-            string resolved = _pathValidator.ResolveSafe(destinationRoot, relativePath);
+            string recorded = _pathValidator.ResolveSafe(destinationRoot, relativePath);
 
-            targets.Add((ToPortablePath(Path.GetRelativePath(destinationRoot, resolved)), resolved));
+            string sourceRelativePath =
+                sourceRelativePaths is not null && sourceRelativePaths.TryGetValue(ToPortablePath(relativePath), out string? mapped)
+                    ? mapped
+                    : relativePath;
+
+            string source = _pathValidator.ResolveSafe(contentRoot, sourceRelativePath);
+
+            targets.Add((ToPortablePath(Path.GetRelativePath(destinationRoot, recorded)), source));
         }
 
         List<BackupFileEntry> files = [];
@@ -277,9 +318,9 @@ public sealed class BackupEngine : IBackupEngine
             // moves. This line is what invariant #1 means in practice.
             _files.CreateDirectory(snapshotDirectory);
 
-            foreach ((string relativePath, string resolvedPath) in targets)
+            foreach ((string relativePath, string sourcePath) in targets)
             {
-                if (!File.Exists(resolvedPath))
+                if (!File.Exists(sourcePath))
                 {
                     // Recorded, not created: the index is the proof that a backup happened, and a fresh
                     // install legitimately has nothing to copy.
@@ -288,9 +329,9 @@ public sealed class BackupEngine : IBackupEngine
                     continue;
                 }
 
-                FileInfo info = new(resolvedPath);
+                FileInfo info = new(sourcePath);
 
-                _files.CopyFile(resolvedPath, Path.Combine(snapshotDirectory, ToPlatformPath(relativePath)), overwrite: false);
+                _files.CopyFile(sourcePath, Path.Combine(snapshotDirectory, ToPlatformPath(relativePath)), overwrite: false);
 
                 files.Add(new BackupFileEntry(relativePath, info.Length, info.LastWriteTimeUtc));
                 totalSize += info.Length;

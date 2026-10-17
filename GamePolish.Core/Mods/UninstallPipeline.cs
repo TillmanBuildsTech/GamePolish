@@ -22,11 +22,15 @@ namespace GamePolish.Core.Mods;
 /// <b>A disabled mod is uninstalled from the data root, not the game.</b> Its files are parked under
 /// <c>staging/disabled/&lt;FolderName&gt;</c>, but the backup's <c>relativePaths</c> are still game-root-relative
 /// (<c>&lt;mod_layout.destination&gt;/&lt;FolderName&gt;/...</c>), because that is where a restore has to put them
-/// back. There is deliberately no second backup layout for the disabled case: the Backups view shows one
-/// shape of path for both, and a restore from either one lands where the game expects the addon. The bytes of
-/// a disabled mod are not in <i>this</i> snapshot - they were already under the data root when it was taken -
-/// so the newest <see cref="BackupTrigger.EnableDisable"/> snapshot, taken while the files were still in the
-/// game, is named in the result's detail as the one that actually holds them.
+/// back. There is deliberately no second backup layout for the disabled case: the Backups view shows one shape of
+/// path for both, and a restore from either snapshot lands where the game expects the addon.
+/// </para>
+/// <para>
+/// <b>The bytes of a parked addon come from the parked tree.</b> That is what <c>205</c>'s optional
+/// <c>sourceRoot</c> and its per-path map exist for: the snapshot records the game-relative path while reading the
+/// content from <c>staging/disabled/&lt;FolderName&gt;</c>. Recording the right paths without the content would
+/// make this backup a promise the product cannot keep - a restore of it would produce an empty folder - so the
+/// uninstall of a disabled mod is the one caller that has to pass both.
 /// </para>
 /// <para>
 /// <b>Nothing here is retention policy.</b> Uninstall never deletes the backups it makes; removing a mod's
@@ -163,7 +167,8 @@ public sealed class UninstallPipeline
             // Where the files actually are. For a disabled mod that is the parked copy under the data root;
             // the manifest's Enabled flag is the only thing that says which, and it is the reason a disable
             // has to write it.
-            string sourceFolder = mod.Enabled ? target.GameFolder : _staging.DisabledPath(gameId, mod.FolderName);
+            bool parked = !mod.Enabled;
+            string sourceFolder = parked ? _staging.DisabledPath(gameId, mod.FolderName) : target.GameFolder;
             bool filesPresent = Directory.Exists(sourceFolder);
             int fileCount = filesPresent ? CountFiles(sourceFolder) : 0;
 
@@ -175,7 +180,9 @@ public sealed class UninstallPipeline
                     DescribeFiles(mod));
             }
 
-            // 1. Snapshot. Before the first byte is deleted, and after nothing but reads.
+            // 1. Snapshot. Before the first byte is deleted, and after nothing but reads. A parked addon's
+            //    content is not under the game root, so it is read through sourceRoot while its recorded paths
+            //    stay game-relative - see the type's remarks.
             cancellationToken.ThrowIfCancellationRequested();
             run.Progress(progress, BackupPhase, 0, 0, mod.FolderName);
 
@@ -186,15 +193,15 @@ public sealed class UninstallPipeline
                 BackupTrigger.ModUninstall,
                 sourceName: mod.Name,
                 sourceVersion: mod.Version,
-                relativePaths: backupPaths);
+                relativePaths: backupPaths,
+                sourceRoot: parked ? _staging.DisabledRoot(gameId) : null,
+                sourceRelativePaths: parked ? target.BackupSourceMapFor(sourceFolder) : null);
 
             run.BackupTimestamp = created.Timestamp;
             run.Entry(
                 "info",
                 $"Took backup {created.Timestamp} of {backupPaths.Count} path(s) before removing anything.",
                 created.Timestamp);
-
-            NoteOlderCopyThatHoldsTheBytes(run, gameId, mod, created);
 
             // 2. Delete the folder - and only the folder. The addon root is the game's and is never touched.
             cancellationToken.ThrowIfCancellationRequested();
@@ -282,45 +289,6 @@ public sealed class UninstallPipeline
             modId: modId,
             backupTimestamp: run.BackupTimestamp,
             entries: run.Entries);
-    }
-
-    /// <summary>
-    /// Records, in the detail, the newest snapshot that actually holds a disabled mod's bytes.
-    /// </summary>
-    /// <remarks>
-    /// A disabled mod's uninstall snapshot names the right paths but holds no content, because the content
-    /// was already under the data root when it was taken. The snapshot from the disable - or from the install,
-    /// if the mod was never disabled - does hold it, at game-root-relative paths. Naming it here is the
-    /// difference between "you have a backup" and "here is the one that can give the files back".
-    /// </remarks>
-    private void NoteOlderCopyThatHoldsTheBytes(ModRun run, string gameId, InstalledMod mod, BackupEvent created)
-    {
-        if (mod.Enabled)
-        {
-            return;
-        }
-
-        try
-        {
-            BackupEvent? holdsTheFiles = _backups
-                .List(gameId)
-                .FirstOrDefault(candidate =>
-                    !string.Equals(candidate.Timestamp, created.Timestamp, StringComparison.Ordinal)
-                    && string.Equals(candidate.SourceName, mod.Name, StringComparison.Ordinal)
-                    && candidate.Files.Any(file => file.SizeBytes > 0));
-
-            if (holdsTheFiles is not null)
-            {
-                run.Note(
-                    $"'{mod.FolderName}' was disabled, so its files were already under the data root and this "
-                    + $"snapshot names their paths without holding their bytes. Backup {holdsTheFiles.Timestamp} "
-                    + "holds the files themselves, at the paths the game expects.");
-            }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
-        {
-            // A recovery hint must never replace the failure it is meant to help with.
-        }
     }
 
     /// <summary>Deletes <c>staging/disabled</c> when the last parked addon just left it empty.</summary>

@@ -101,6 +101,74 @@ public class BackupEngineTests
         Assert.Equal(TocContents.Length, created.TotalSizeBytes);
     }
 
+    /// <summary>
+    /// The parked-addon case <c>210</c> needs: the content is under the data root, but every recorded path and the
+    /// snapshot's own layout stay relative to the install root, so a restore puts the files back in the game.
+    /// </summary>
+    [Fact]
+    public void ContentCanComeFromASourceRootWhileTheRecordedPathsStayGameRelative()
+    {
+        string parked = Parked("pfUI");
+        File.WriteAllText(Path.Combine(parked, "pfUI.toc"), TocContents);
+        File.WriteAllText(Path.Combine(parked, "lib.lua"), "-- lib");
+
+        const string LibPath = "Interface/AddOns/pfUI/lib.lua";
+
+        // Neither file is in the game: that is the defect this test exists for. Without a source root the engine
+        // would record both paths at size zero and the backup would restore an empty folder.
+        Assert.False(File.Exists(Path.Combine(_installRoot, AddonToc.Replace('/', Path.DirectorySeparatorChar))));
+
+        BackupEvent created = Engine().Create(
+            GameId,
+            _installRoot,
+            BackupTrigger.ModUninstall,
+            "pfUI",
+            null,
+            [AddonToc, LibPath],
+            sourceRoot: parked,
+            sourceRelativePaths: new Dictionary<string, string>
+            {
+                [AddonToc] = "pfUI.toc",
+                [LibPath] = "lib.lua",
+            });
+
+        Assert.Equal(2, created.Files.Count);
+        Assert.Contains(created.Files, file => file.RelativePath == AddonToc && file.SizeBytes == TocContents.Length);
+        Assert.Contains(created.Files, file => file.RelativePath == LibPath && file.SizeBytes == "-- lib".Length);
+        Assert.Equal(TocContents.Length + "-- lib".Length, created.TotalSizeBytes);
+
+        string snapshot = SnapshotDirectory(created.Timestamp);
+
+        Assert.Equal(
+            TocContents,
+            File.ReadAllText(Path.Combine(snapshot, AddonToc.Replace('/', Path.DirectorySeparatorChar))));
+        Assert.True(File.Exists(Path.Combine(snapshot, LibPath.Replace('/', Path.DirectorySeparatorChar))));
+
+        // Nothing was created in the game folder to make the copy possible.
+        Assert.False(Directory.Exists(Path.Combine(_installRoot, "Interface", "AddOns", "pfUI")));
+    }
+
+    /// <summary>A source-relative path is validated against the source root, so it cannot climb out of it.</summary>
+    [Fact]
+    public void ASourceRelativePathCannotEscapeItsSourceRoot()
+    {
+        string parked = Parked("pfUI");
+        File.WriteAllText(Path.Combine(parked, "pfUI.toc"), TocContents);
+
+        Assert.Throws<PathValidationException>(() => Engine().Create(
+            GameId,
+            _installRoot,
+            BackupTrigger.ModUninstall,
+            "pfUI",
+            null,
+            [AddonToc],
+            sourceRoot: parked,
+            sourceRelativePaths: new Dictionary<string, string> { [AddonToc] = "../../evil.toc" }));
+
+        Assert.Empty(Engine().List(GameId));
+        Assert.False(Directory.Exists(_paths.BackupsDirectory(GameId)));
+    }
+
     [Fact]
     public void TheIndexIsSnakeCaseAndNamesItsTrigger()
     {
@@ -312,6 +380,16 @@ public class BackupEngineTests
         // and the failed restore left no pre-restore event behind.
         Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(_installRoot)!, "evil.txt")));
         Assert.Single(engine.List(GameId));
+    }
+
+    /// <summary>The parked-copies root for one folder name, the way the staging area lays it out.</summary>
+    private string Parked(string folderName)
+    {
+        string parked = Path.Combine(_paths.StagingDirectory(GameId), "disabled", folderName);
+
+        Directory.CreateDirectory(parked);
+
+        return parked;
     }
 
     private BackupEngine Engine(RecordingFileOps? files = null) =>
