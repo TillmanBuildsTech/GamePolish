@@ -52,7 +52,7 @@ internal static class DescriptorCommands
         ]);
 
         string message = invalid == 0
-            ? $"{entries.Count} descriptor(s) loaded from {searched.Count} director(y/ies)."
+            ? $"{entries.Count} descriptor(s) found; searched {searched.Count} director(y/ies)."
             : $"{entries.Count} descriptor(s) found, {invalid} invalid.";
 
         OperationResult result = invalid == 0

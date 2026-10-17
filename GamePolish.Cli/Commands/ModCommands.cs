@@ -3,6 +3,7 @@ using GamePolish.Core.Games;
 using GamePolish.Core.Install;
 using GamePolish.Core.Manifest;
 using GamePolish.Core.Operations;
+using GamePolish.Core.Paths;
 using GamePolish.Core.Update;
 
 namespace GamePolish.Cli.Commands;
@@ -124,7 +125,7 @@ internal static class ModCommands
         CancellationToken cancellationToken)
     {
         string gameId = command.Required("game");
-        string modId = command.Required("mod");
+        string modId = ResolveMod(composition, gameId, command.Required("mod"));
 
         Preflight.RequireTrackedGame(composition.Games, gameId);
         Preflight.RequireGit(composition.Git);
@@ -150,7 +151,7 @@ internal static class ModCommands
         Preflight.RequireTrackedGame(composition.Games, gameId);
 
         IReadOnlyList<string> modIds = command.Option("mod") is string requestedMod
-            ? [requestedMod]
+            ? [ResolveMod(composition, gameId, requestedMod)]
             : [.. composition.Mods.GetRows(gameId).Select(mod => mod.Id)];
 
         if (modIds.Count == 0)
@@ -193,7 +194,7 @@ internal static class ModCommands
         CancellationToken cancellationToken)
     {
         string gameId = command.Required("game");
-        string modId = command.Required("mod");
+        string modId = ResolveMod(composition, gameId, command.Required("mod"));
 
         Preflight.RequireTrackedGame(composition.Games, gameId);
 
@@ -213,12 +214,37 @@ internal static class ModCommands
         CancellationToken cancellationToken)
     {
         string gameId = command.Required("game");
-        string modId = command.Required("mod");
+        string modId = ResolveMod(composition, gameId, command.Required("mod"));
 
         Preflight.RequireTrackedGame(composition.Games, gameId);
 
         return CommandOutcome.FromResult(await composition.Mods
             .SetEnabledAsync(gameId, modId, enabled, reporter, cancellationToken)
             .ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Turns a user-typed mod reference into the manifest id, accepting the id or the folder name.
+    /// </summary>
+    /// <param name="composition">The wired Core components, for the manifest rows.</param>
+    /// <param name="gameId">The game the mod belongs to.</param>
+    /// <param name="requested">What the user typed after <c>--mod</c>.</param>
+    /// <remarks>
+    /// The manifest matches ids exactly, and an installed mod's id is the registry id or a slug of the folder
+    /// name (<c>pfui</c> for the folder <c>pfUI</c>) - so the name a user reads off the folder, and that
+    /// <c>list</c> prints as the last column, is not always the id. Resolving id first and folder name second
+    /// keeps the exact-id rule intact while making <c>--mod pfUI</c> work, which is what the acceptance script
+    /// in the work order types. An unknown reference is passed through unchanged so the pipeline reports it with
+    /// the name the user actually used.
+    /// </remarks>
+    private static string ResolveMod(Composition composition, string gameId, string requested)
+    {
+        IReadOnlyList<InstalledMod> rows = composition.Mods.GetRows(gameId);
+
+        InstalledMod? match =
+            rows.FirstOrDefault(mod => string.Equals(mod.Id, requested, StringComparison.Ordinal))
+            ?? rows.FirstOrDefault(mod => string.Equals(mod.FolderName, requested, PathComparer.PathComparison));
+
+        return match?.Id ?? requested;
     }
 }
