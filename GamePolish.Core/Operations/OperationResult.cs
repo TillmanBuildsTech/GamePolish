@@ -4,6 +4,7 @@ using GamePolish.Core.Backup;
 using GamePolish.Core.Games;
 using GamePolish.Core.Manifest;
 using GamePolish.Core.Paths;
+using GamePolish.Core.Registry;
 using GamePolish.Core.Sources;
 
 namespace GamePolish.Core.Operations;
@@ -266,6 +267,9 @@ public sealed record OperationResult
             OperationStatus.Failed),
         ManifestCorruptException => (OperationErrorCode.ManifestCorrupt, OperationStatus.Failed),
 
+        RegistryUnavailableException => (OperationErrorCode.RegistryUnavailable, OperationStatus.Failed),
+        RegistryValidationException => (OperationErrorCode.RegistryInvalid, OperationStatus.Failed),
+
         GitUnavailableException => (OperationErrorCode.GitNotFound, OperationStatus.Failed),
         ZipInvalidException => (OperationErrorCode.ZipInvalid, OperationStatus.Failed),
         SourceAcquisitionException source => MapSourceFailure(source.Failure),
@@ -409,6 +413,27 @@ public sealed record OperationResult
             builder.Append("Descriptor: ").Append(descriptor.DescriptorPath).Append('\n');
             builder.Append("Problems:").Append('\n');
             foreach (string problem in descriptor.Problems)
+            {
+                builder.Append("  - ").Append(problem).Append('\n');
+            }
+        }
+
+        if (exception is RegistryUnavailableException unavailable)
+        {
+            // 211 records the technical cause on the exception (its Message is the banner text the user sees),
+            // so this is the only place it reaches the drawer.
+            builder.Append("Registry: ").Append(unavailable.RegistryUrl).Append('\n');
+            builder.Append("Diagnostic: ").Append(unavailable.Diagnostic).Append('\n');
+        }
+
+        if (exception is RegistryValidationException registry)
+        {
+            // The message names the problems too, but it is clamped to one toast line; this is the copy a
+            // registry author fixes the file from, and 211 collects every problem precisely so a single edit
+            // can resolve them all.
+            builder.Append("Registry: ").Append(registry.RegistryUrl).Append('\n');
+            builder.Append("Problems:").Append('\n');
+            foreach (RegistryProblem problem in registry.Problems)
             {
                 builder.Append("  - ").Append(problem).Append('\n');
             }
