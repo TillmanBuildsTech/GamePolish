@@ -19,6 +19,12 @@ internal sealed class RecordingFileOps : IFileOps
     /// <summary>Optional failure injection: return an exception to make that copy fail.</summary>
     public Func<string, Exception?>? OnCopyFile { get; init; }
 
+    /// <summary>Optional failure injection: return an exception to make that file creation fail.</summary>
+    public Func<string, Exception?>? OnCreateFile { get; init; }
+
+    /// <summary>Optional failure injection: return an exception to make that move fail.</summary>
+    public Func<string, string, Exception?>? OnMoveFile { get; init; }
+
     /// <inheritdoc/>
     public void CreateDirectory(string path)
     {
@@ -70,6 +76,32 @@ internal sealed class RecordingFileOps : IFileOps
         Calls.Add($"WriteAllBytes({path})");
 
         _inner.WriteAllBytes(path, contents);
+    }
+
+    /// <inheritdoc/>
+    public Stream CreateFile(string path)
+    {
+        Calls.Add($"CreateFile({path})");
+
+        if (OnCreateFile?.Invoke(path) is { } failure)
+        {
+            throw failure;
+        }
+
+        return _inner.CreateFile(path);
+    }
+
+    /// <inheritdoc/>
+    public void MoveFile(string source, string destination, bool overwrite)
+    {
+        Calls.Add($"MoveFile({source} => {destination})");
+
+        if (OnMoveFile?.Invoke(source, destination) is { } failure)
+        {
+            throw failure;
+        }
+
+        _inner.MoveFile(source, destination, overwrite);
     }
 }
 
