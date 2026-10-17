@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GamePolish.Core.Tests", "Ga
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GamePolish.Desktop.Tests", "GamePolish.Desktop.Tests\GamePolish.Desktop.Tests.csproj", "{9A3E9D5F-528E-43FB-A3DA-595543E7F205}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GamePolish.Cli", "GamePolish.Cli\GamePolish.Cli.csproj", "{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -97,6 +99,18 @@ Global
 		{9A3E9D5F-528E-43FB-A3DA-595543E7F205}.Release|x64.Build.0 = Release|Any CPU
 		{9A3E9D5F-528E-43FB-A3DA-595543E7F205}.Release|x86.ActiveCfg = Release|Any CPU
 		{9A3E9D5F-528E-43FB-A3DA-595543E7F205}.Release|x86.Build.0 = Release|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Debug|x64.Build.0 = Debug|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Debug|x86.Build.0 = Debug|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Release|x64.ActiveCfg = Release|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Release|x64.Build.0 = Release|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Release|x86.ActiveCfg = Release|Any CPU
+		{1CD8D79B-99CA-4092-994C-6B7D7A8AC03C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

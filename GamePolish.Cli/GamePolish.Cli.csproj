@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>GamePolish.Cli</RootNamespace>
+
+    <!--
+      Task 213: the second of the three mechanisms that keep this project out of a release. An
+      unreferenced project never lands in the Desktop's publish output (mechanism 1, task 403), and this
+      stops a future `dotnet pack` of the solution from ever producing a GamePolish.Cli nupkg (mechanism 2).
+    -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Core and nothing else: this is a harness for the engine, not a second composition layer, and a
+      reference to Desktop or Service would make the tool ship by accident.
+    -->
+    <ProjectReference Include="..\GamePolish.Core\GamePolish.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Descriptors ship next to the executable, the way the Desktop app carries them (task 401). The
+      directory does not exist in the tree yet, so this is an empty glob today and a copy once it does.
+    -->
+    <None Include="$(MSBuildThisFileDirectory)../games/*.yaml" Link="games/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
