@@ -42,4 +42,21 @@ public sealed class FileOps : IFileOps
 
         File.WriteAllBytes(path, contents);
     }
+
+    /// <inheritdoc/>
+    public Stream CreateFile(string path)
+    {
+        string? directory = Path.GetDirectoryName(path);
+
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+    }
+
+    /// <inheritdoc/>
+    public void MoveFile(string source, string destination, bool overwrite) =>
+        File.Move(source, destination, overwrite);
 }

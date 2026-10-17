@@ -36,4 +36,26 @@ public interface IFileOps
 
     /// <summary>Writes bytes to a file, creating the parent directory when it is missing.</summary>
     void WriteAllBytes(string path, byte[] contents);
+
+    /// <summary>
+    /// Creates a file and opens it for writing, truncating an existing one, and creating the parent
+    /// directory when it is missing.
+    /// </summary>
+    /// <param name="path">The file to create or truncate.</param>
+    /// <returns>A writable stream the caller disposes.</returns>
+    /// <remarks>
+    /// Here because archive extraction must stream: <see cref="WriteAllBytes"/> would hold a hostile
+    /// archive's entry in memory, and the expansion caps allow such an entry to be large.
+    /// </remarks>
+    Stream CreateFile(string path);
+
+    /// <summary>Moves a file, optionally replacing an existing destination.</summary>
+    /// <param name="source">The existing file.</param>
+    /// <param name="destination">Where it goes; the parent directory must exist.</param>
+    /// <param name="overwrite">True to replace <paramref name="destination"/> when it already exists.</param>
+    /// <remarks>
+    /// The second half of the write pattern extraction uses: content lands in a uniquely named sibling and
+    /// is renamed into place, so a half-written file never appears under the name the manifest will record.
+    /// </remarks>
+    void MoveFile(string source, string destination, bool overwrite);
 }

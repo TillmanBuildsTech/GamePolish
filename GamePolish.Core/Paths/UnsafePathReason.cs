@@ -45,4 +45,11 @@ public enum UnsafePathReason
 
     /// <summary>The destination root is not an existing, fully-qualified directory.</summary>
     DestinationMissing,
+
+    /// <summary>
+    /// The name is one Game Polish reserves for its own bookkeeping inside a game's mod folder: the
+    /// <c>.game-polish-</c> prefix marks a half-done install's swap directory, so an addon that claimed it
+    /// would be deleted by the next startup sweep.
+    /// </summary>
+    ReservedPrefix,
 }
