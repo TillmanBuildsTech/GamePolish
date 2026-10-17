@@ -109,6 +109,11 @@ notes. 404 owns the artifact filenames; do not invent them here.
 - `dotnet msbuild ... -getProperty:Version -nologo` prints `0.1.0`.
 - The report states plainly that the osx-arm64 output was **not** executed here, and what would verify it.
 - No signing, installer or updater step appears in the diff — no `pfx`, `signtool`, `codesign`, `notarytool`.
+- **The published artifact trees contain no `GamePolish.Cli`**: neither
+  `publish/GamePolish.Cli.dll` nor a `GamePolish.Cli` executable, in either RID. The CLI (`213`) is a dev
+  harness that must never ship, and this is the check that proves it - a project reference would put it in the
+  output, while being unreferenced by `GamePolish.Desktop` and `<IsPackable>false</IsPackable>` keep it out.
+  Assert it as part of this task's verification, not by inspection.
 
 ## Verification
 
