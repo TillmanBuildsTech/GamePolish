@@ -95,10 +95,10 @@ internal sealed record ModTarget
     /// <para>
     /// This is the other half of <c>205</c>'s optional <c>sourceRoot</c>. A parked addon's tree mirrors the
     /// <i>addons folder</i>, not the game root: <c>staging/disabled/pfUI/pfUI.toc</c> corresponds to
-    /// <c>Interface/AddOns/pfUI/pfUI.toc</c>. Handing the snapshot a source root alone would therefore look for
-    /// <c>staging/disabled/Interface/AddOns/pfUI/pfUI.toc</c> and find nothing, so the recorded path is mapped to
-    /// its addons-folder-relative key and the snapshot reads the parked bytes while writing the game-relative
-    /// layout.
+    /// <c>pfUI/pfUI.toc</c> under the game's addons folder. Handing the snapshot a source root alone would
+    /// therefore look for <c>staging/disabled/&lt;addons folder&gt;/pfUI/pfUI.toc</c> and find nothing, so the
+    /// recorded path is mapped to its addons-folder-relative key and the snapshot reads the parked bytes while
+    /// writing the game-relative layout.
     /// </para>
     /// <para>
     /// Every recorded path is composed from the addons folder in <see cref="BackupPathsFor"/>, so every one of them

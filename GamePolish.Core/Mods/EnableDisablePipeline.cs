@@ -2,8 +2,8 @@ using System.Security.Cryptography;
 
 using GamePolish.Core.Backup;
 using GamePolish.Core.Games;
-using GamePolish.Core.IO;
 using GamePolish.Core.Install;
+using GamePolish.Core.IO;
 using GamePolish.Core.Manifest;
 using GamePolish.Core.Operations;
 using GamePolish.Core.Paths;
