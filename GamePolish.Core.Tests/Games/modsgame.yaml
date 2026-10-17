@@ -1,0 +1,9 @@
+id: modsgame
+name: "Mods Game"
+install_detection:
+  manual_only: true
+  verify_file: "game.exe"
+mod_layout:
+  type: addons_folder
+  destination: "Mods"
+registry_url: "https://raw.githubusercontent.com/game-polish/registries/main/modsgame.json"
