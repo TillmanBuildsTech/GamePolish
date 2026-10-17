@@ -87,6 +87,44 @@ internal sealed record ModTarget
     private static string Portable(string path) => path.Replace('\\', '/');
 
     /// <summary>
+    /// Maps every path <see cref="BackupPathsFor"/> records to where its bytes live under a root that stands in for
+    /// the addons folder - which is what <c>staging/disabled/&lt;FolderName&gt;</c> is.
+    /// </summary>
+    /// <param name="folderHoldingTheFiles">Where the files are now, exactly as for <see cref="BackupPathsFor"/>.</param>
+    /// <remarks>
+    /// <para>
+    /// This is the other half of <c>205</c>'s optional <c>sourceRoot</c>. A parked addon's tree mirrors the
+    /// <i>addons folder</i>, not the game root: <c>staging/disabled/pfUI/pfUI.toc</c> corresponds to
+    /// <c>Interface/AddOns/pfUI/pfUI.toc</c>. Handing the snapshot a source root alone would therefore look for
+    /// <c>staging/disabled/Interface/AddOns/pfUI/pfUI.toc</c> and find nothing, so the recorded path is mapped to
+    /// its addons-folder-relative key and the snapshot reads the parked bytes while writing the game-relative
+    /// layout.
+    /// </para>
+    /// <para>
+    /// Every recorded path is composed from the addons folder in <see cref="BackupPathsFor"/>, so every one of them
+    /// has the prefix. A path that somehow does not is left out rather than guessed at: it is then looked for at its
+    /// own relative path under the source root, which is the documented default.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyDictionary<string, string> BackupSourceMapFor(string folderHoldingTheFiles)
+    {
+        string addonRootRelative = Portable(Path.GetRelativePath(InstallPath, AddonRoot));
+        string prefix = addonRootRelative + "/";
+
+        Dictionary<string, string> map = new(StringComparer.Ordinal);
+
+        foreach (string recorded in BackupPathsFor(folderHoldingTheFiles))
+        {
+            if (recorded.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                map[recorded] = recorded[prefix.Length..];
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>
     /// Resolves the tracked game, its descriptor and the mod's own folder, or throws with the reason.
     /// </summary>
     /// <param name="games">Which games are tracked, and where each is installed.</param>

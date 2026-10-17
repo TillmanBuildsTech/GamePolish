@@ -104,6 +104,8 @@ public class UninstallPipelineTests
         Assert.Equal(OperationStatus.Succeeded, disabled.Status);
         Assert.True(Directory.Exists(parked));
 
+        IReadOnlyList<string> parkedFiles = ModScenario.FileSet(parked);
+
         OperationResult result = await scenario.Uninstall.UninstallAsync(
             ModScenario.GameId,
             "pfui",
@@ -130,10 +132,29 @@ public class UninstallPipelineTests
         Assert.Equal(BackupTrigger.ModUninstall, entry.Trigger);
         Assert.Equal("pfUI", entry.SourceName);
 
-        // Game-root-relative, composed from the descriptor's destination - the shape a restore needs. The bytes
-        // themselves are not in this snapshot: the files were already under the data root.
+        // Game-root-relative, composed from the descriptor's destination - the shape a restore needs.
         Assert.Contains(entry.Files, file => file.RelativePath == "Interface/AddOns/pfUI/pfUI.toc");
         Assert.All(entry.Files, file => Assert.False(file.RelativePath.StartsWith("..", StringComparison.Ordinal)));
+
+        // ...and the bytes are actually in it, read from the parked tree through 205's sourceRoot. Recording the
+        // paths without the content is the defect this assertion exists to catch: the backup of a disabled mod
+        // would otherwise restore an empty folder.
+        BackupFileEntry toc = Assert.Single(
+            entry.Files,
+            file => file.RelativePath == "Interface/AddOns/pfUI/pfUI.toc");
+
+        Assert.True(toc.SizeBytes > 0, "the snapshot recorded the path but no content for it");
+
+        string snapshotFolder = Path.Combine(snapshot, "Interface", "AddOns", "pfUI");
+        string snapshotFile = Path.Combine(snapshotFolder, "pfUI.toc");
+
+        Assert.True(File.Exists(snapshotFile), $"{snapshotFile} was not written, so a restore would produce nothing.");
+
+        // The proof that the snapshot is worth having: restoring it puts the addon back in the game folder,
+        // byte for byte, at the path the game expects.
+        scenario.Backups.Restore(ModScenario.GameId, scenario.InstallRoot, result.BackupTimestamp!);
+
+        Assert.Equal(parkedFiles, ModScenario.FileSet(scenario.GameFolder("pfUI")));
     }
 
     [Fact]
