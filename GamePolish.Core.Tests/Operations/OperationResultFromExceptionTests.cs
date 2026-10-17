@@ -5,6 +5,7 @@ using GamePolish.Core.Games;
 using GamePolish.Core.Manifest;
 using GamePolish.Core.Operations;
 using GamePolish.Core.Paths;
+using GamePolish.Core.Registry;
 using GamePolish.Core.Sources;
 
 namespace GamePolish.Core.Tests.Operations;
@@ -100,6 +101,47 @@ public class OperationResultFromExceptionTests
                 @"C:\data\octowow\manifest.json.corrupt-20261015T214203123Z",
                 new JsonException("Unexpected end of JSON.")),
             OperationErrorCode.ManifestCorrupt);
+    }
+
+    [Fact]
+    public void RegistryUnavailableMapsToRegistryUnavailable()
+    {
+        AssertFailed(
+            new RegistryUnavailableException(
+                "octowow",
+                "https://raw.githubusercontent.com/game-polish/registries/main/octowow.json",
+                "HttpRequestException: connection refused"),
+            OperationErrorCode.RegistryUnavailable,
+            detail => Assert.Contains("connection refused", detail, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RegistryValidationMapsToRegistryInvalidAndListsEveryProblem()
+    {
+        AssertFailed(
+            new RegistryValidationException(
+                "octowow",
+                "https://raw.githubusercontent.com/game-polish/registries/main/octowow.json",
+                [
+                    new RegistryProblem
+                    {
+                        Reason = RegistryProblem.ReasonInvalidModId,
+                        Message = "mods[3] ('PFUI'): id must match ^[a-z0-9][a-z0-9-]*$",
+                    },
+                    new RegistryProblem
+                    {
+                        Reason = RegistryProblem.ReasonDuplicateModId,
+                        Message = "mods[7] ('pfui'): id is already used by mods[3]",
+                    },
+                ]),
+            OperationErrorCode.RegistryInvalid,
+            detail =>
+            {
+                // Every problem survives into the detail, so a registry author fixes the file in one edit
+                // instead of one round trip per problem.
+                Assert.Contains("mods[3] ('PFUI')", detail, StringComparison.Ordinal);
+                Assert.Contains("already used by mods[3]", detail, StringComparison.Ordinal);
+            });
     }
 
     [Fact]
