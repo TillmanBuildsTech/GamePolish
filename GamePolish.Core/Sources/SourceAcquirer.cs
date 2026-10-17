@@ -249,8 +249,18 @@ public sealed class SourceAcquirer : ISourceAcquirer
 
         foreach (string directory in Directory.EnumerateDirectories(stagingDirectory))
         {
+            string name = Path.GetFileName(directory);
+
+            // Parked disabled addons are direct children of staging/ too, and they are not abandoned: a mod can
+            // stay disabled for months, so age is not evidence that a directory is nobody's. Skipped by 210's own
+            // constant rather than a string here, because two literals drift and this one's drift is data loss.
+            if (Mods.StagingArea.IsReservedDirectoryName(name))
+            {
+                continue;
+            }
+
             if (excludeOperationId is not null
-                && string.Equals(Path.GetFileName(directory), excludeOperationId, StringComparison.Ordinal))
+                && string.Equals(name, excludeOperationId, StringComparison.Ordinal))
             {
                 continue;
             }
